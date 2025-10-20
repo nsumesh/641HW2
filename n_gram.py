@@ -4,6 +4,16 @@ from collections import Counter
 import math
 import random
 
+
+'''
+Block 1 : Data Preprocessing and Tokenization
+This block uses functions such as 
+- normalize_sentence(): This normalizes unicode characters, changes the case of all text to lowercase and trims extra spaces from sentences
+- load_and_normalize(): Loads the fiiles from the ptbdataset, and uses the normalize function to normalize the training, validation and testing set
+- build_vocab() : Builds the vocabulary and frequency counter from the training sentences
+- replace_rare() : It replaces every word not found in the vocabulary with <UNK> making sure the words are present in the vocabulary
+- save_sentences() : Writes the processed sentences to new text files
+'''
 def normalize_sentence(s, replace_numbers = False):
     s = unicodedata.normalize("NFKC", s)
     s = s.replace("“", "\"").replace("”", "\"").replace("‘", "'").replace("’", "'")
@@ -59,6 +69,15 @@ with (base_proc / "vocab.txt").open("w", encoding="utf-8") as vf:
     for token in sorted(vocab):
         vf.write(token + "\n")
 
+'''
+Block 2 : Setting up n-grams and loading the data
+This block uses functions such as: 
+- read_sentences(): This reads the tokenized text file line by line and returns a list of sentences
+- build_n_gram_counts() : Builds the frequency counts of all n-grams, counting the full n gram and the count of the context
+- building_ngrams() : Builds n grams by calling build_n_gram_counts
+The rest of the block consists of reading the training, validation and test sentences and building the ngrams for n=1,2,3,4
+'''
+
 def read_sentences(path):
     sents = []
     with path.open("r", encoding="utf-8") as f:
@@ -101,6 +120,16 @@ bigram_count, bigram_context = all_counts[2]
 trigram_count, trigram_context = all_counts[3]
 fourgram_count, fourgram_context = all_counts[4]
 
+'''
+Block 3 : MLE And Perplexity:
+Thsis block consists of:
+- mle_probabilities() : It computes the mle of a given word given the context
+- compute_perplexity(): Calculates the perplexity for the given n gram model on the set of sentences
+
+The perplexities are then calculated for each n gram model which are then printed.
+'''
+
+
 def mle_probabilities(word, context, ngram_count, context_count):
     ngram = context + (word,)
     frequency = ngram_count.get(ngram,0)
@@ -139,6 +168,13 @@ print("Bigram Perplexity: ", bigram_perplexity)
 print("Trigram Perplexity: ", trigram_perplexity)
 print("Four gram Perplexity: ", fourgram_perplexity)
 print()
+'''
+Block 4 : Laplace add one smoothing and Perplexity 
+This block consists of :
+- laplace_probability() : computes the probability using thw laplace smoothing function by adding one to the seen counts so no ngram has a 0 probability
+- compute_perplexity_with_laplace(): Calculates the perplexities using the laplace_probability function instead of raw probabilities
+The perplexity for each method is then calculated for each n gram using the laplace probability
+'''
 def laplace_probability(word, context, ngram_count, context_count):
     ngram = context + (word,)
     frequency = ngram_count.get(ngram,0)+1
@@ -176,6 +212,13 @@ print("Trigram Perplexity with Laplace: ", trigram_perplexity_with_laplace)
 print("Fourgram Perplexity with Laplace: ", fourgram_perplexity_with_laplace)
 print()
 
+'''
+Block 5 : Interpolation and Interpolation perplexity calculations
+This block consists of:
+- interpolation(): it computes the smoothed probability of a word by combining the probability of a word over 4 models and it uses add one to handle unseen ngrams
+- interpolation_perplexity(): it computes the perplexity using the smoothed probabilities
+After this, we test different lambda values checking what works best with the model, we use the validation set for this task and then report the best lambda and the lowest perplexity
+'''
 def interpolation(word, context, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, fourgram_count, fourgram_context, lambdas, vocab_size):
     lambda1, lambda2, lambda3, lambda4 = lambdas[0], lambdas[1], lambdas[2], lambdas[3]
     unigram_probability = (unigram_count.get((word,), 0) + 1) / (sum(unigram_count.values()) + vocab_size)
@@ -238,6 +281,14 @@ for lambda_w in lambda_weights:
 print("Best Lambda:", best_lambda)
 print("Lowest Perplexity:", highest_perplexity)
 print()
+'''
+Block 6 : Backoff and Backoff Perplexity:
+This block consists of:
+-backoff_probability(): It looks for the highest available n gram and if that it is unseen, it backs off to a lower order model recursively
+-backoff_perplexity(): Evaluate the perplexity for the selected backoff model
+The backoff perplexity is then calculated with a weight of alpha=0.4
+'''
+
 def backoff_probability(word, context, unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context, alpha=0.4):
     if len(context) >= 3:
         context_four = tuple(context[-3:])
@@ -284,30 +335,18 @@ boff_perplexity = backoff_perplexity(validation_sentences,unigram_count, bigram_
 print("Backoff Perplexity:", boff_perplexity)
 print()
 
-mle_perplexity = compute_perplexity(test_sentences, unigram_count, unigram_context, n=1)
-test_unigram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, unigram_count, unigram_context, n=1)
-test_bigram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, bigram_count, bigram_context, n=2)
-test_trigram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, trigram_count, trigram_context, n=3)
-test_fourgram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, fourgram_count, fourgram_context, n=4)
-lambdas = [0.4, 0.2, 0.2, 0.2]
-test_interpolation_perplexity = interpolation_perplexity(testing_sentences, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, fourgram_count, fourgram_context, lambdas, vocab_size)
-test_backoff_perplexity = backoff_perplexity(testing_sentences, unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context,alpha=0.4)
+'''
+Block 7: Testing and Generating Sentences with N-Gram Models
+Here, we calculate the perplexity of of all models on the testing set based on the methods described above (Maximum Likelihood Estimation, Laplace Add-One Smoothing, Interpolation and Backoff)
+The block also consists of a function generate_sentences() which uses the backoff model which is the best performing model on this set of data and generates sentences upto a length of 15 words
 
-print('MLE Perplexity on Testing Set: ',mle_perplexity)
-print('Unigram Laplace Perplexity on Testing Set: ',test_unigram_laplace_perplexity)
-print('Bigram Laplace Perplexity on Testing Set: ',test_bigram_laplace_perplexity)
-print('Trigram Laplace Perplexity on Testing Set: ',test_trigram_laplace_perplexity)
-print('Fourgram Laplace Perplexity on Testing Set: ',test_fourgram_laplace_perplexity)
-print('Interpolation perplexity on Testing Set: ',test_interpolation_perplexity)
-print('Backoff Perplexity for Testing set: ', test_backoff_perplexity)
-print()
+'''
+
 
 mle_perplexity_unigram = compute_perplexity(testing_sentences, unigram_count, unigram_context, n=1)
 mle_perplexity_bigram = compute_perplexity(testing_sentences, bigram_count, bigram_context, n=2)
 mle_perplexity_trigram = compute_perplexity(testing_sentences, trigram_count, trigram_context, n=3)
 mle_perplexity_fourgram = compute_perplexity(testing_sentences, fourgram_count, fourgram_context, n=4)
-
-
 test_unigram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, unigram_count, unigram_context, n=1)
 test_bigram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, bigram_count, bigram_context, n=2)
 test_trigram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, trigram_count, trigram_context, n=3)
@@ -320,7 +359,6 @@ print('MLE Perplexity on Testing Set for Unigram: ',mle_perplexity_unigram)
 print('MLE Perplexity on Testing Set for Bigram: ',mle_perplexity_bigram)
 print('MLE Perplexity on Testing Set for Trigram: ',mle_perplexity_trigram)
 print('MLE Perplexity on Testing Set for Fourgram: ',mle_perplexity_fourgram)
-
 print('Unigram Laplace Perplexity on Testing Set: ',test_unigram_laplace_perplexity)
 print('Bigram Laplace Perplexity on Testing Set: ',test_bigram_laplace_perplexity)
 print('Trigram Laplace Perplexity on Testing Set: ',test_trigram_laplace_perplexity)
