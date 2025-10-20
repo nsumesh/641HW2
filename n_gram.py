@@ -359,10 +359,13 @@ print('MLE Perplexity on Testing Set for Unigram: ',mle_perplexity_unigram)
 print('MLE Perplexity on Testing Set for Bigram: ',mle_perplexity_bigram)
 print('MLE Perplexity on Testing Set for Trigram: ',mle_perplexity_trigram)
 print('MLE Perplexity on Testing Set for Fourgram: ',mle_perplexity_fourgram)
+print()
 print('Unigram Laplace Perplexity on Testing Set: ',test_unigram_laplace_perplexity)
 print('Bigram Laplace Perplexity on Testing Set: ',test_bigram_laplace_perplexity)
 print('Trigram Laplace Perplexity on Testing Set: ',test_trigram_laplace_perplexity)
 print('Fourgram Laplace Perplexity on Testing Set: ',test_fourgram_laplace_perplexity)
+
+print()
 print('Interpolation perplexity on Testing Set: ',test_interpolation_perplexity)
 print('Backoff Perplexity for Testing set: ', test_backoff_perplexity)
 
