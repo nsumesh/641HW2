@@ -204,12 +204,10 @@ def compute_perplexity_with_laplace(sentences, ngram_count, context_count, n):
 unigram_perplexity_with_laplace = compute_perplexity_with_laplace(training_sentences, unigram_count, unigram_context, n=1)
 bigram_perplexity_with_laplace = compute_perplexity_with_laplace(training_sentences, bigram_count, bigram_context, n=2)
 trigram_perplexity_with_laplace = compute_perplexity_with_laplace(training_sentences, trigram_count, trigram_context, n=3)
-fourgram_perplexity_with_laplace = compute_perplexity_with_laplace(training_sentences, fourgram_count, fourgram_context, n=4)
 
 print("Unigram Perplexity with Laplace: ", unigram_perplexity_with_laplace)
 print("Bigram Perplexity with Laplace: ", bigram_perplexity_with_laplace)
 print("Trigram Perplexity with Laplace: ", trigram_perplexity_with_laplace)
-print("Fourgram Perplexity with Laplace: ", fourgram_perplexity_with_laplace)
 print()
 
 '''
@@ -219,54 +217,55 @@ This block consists of:
 - interpolation_perplexity(): it computes the perplexity using the smoothed probabilities
 After this, we test different lambda values checking what works best with the model, we use the validation set for this task and then report the best lambda and the lowest perplexity
 '''
-def interpolation(word, context, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, fourgram_count, fourgram_context, lambdas, vocab_size):
-    lambda1, lambda2, lambda3, lambda4 = lambdas[0], lambdas[1], lambdas[2], lambdas[3]
+
+def interpolation(word, context, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, lambdas, vocab_size):
+    lambda1, lambda2, lambda3 = lambdas[0], lambdas[1], lambdas[2]
+
     unigram_probability = (unigram_count.get((word,), 0) + 1) / (sum(unigram_count.values()) + vocab_size)
+
     if len(context) >= 1:
         context_bi = (context[-1],)
         bigram_probability = (bigram_count.get(context_bi + (word,), 0) + 1) / (bigram_context.get(context_bi, 0) + vocab_size)
     else:
         bigram_probability = unigram_probability
+
     if len(context) >= 2:
         context_tri = tuple(context[-2:])
         trigram_probability = (trigram_count.get(context_tri + (word,), 0) + 1) / (trigram_context.get(context_tri, 0) + vocab_size)
     else:
         trigram_probability = bigram_probability
-    if len(context) >= 3:
-        context_four = tuple(context[-3:])
-        fourgram_probability = (fourgram_count.get(context_four + (word,), 0) + 1) / (fourgram_context.get(context_four, 0) + vocab_size)
-    else:
-        fourgram_probability = trigram_probability
-    return lambda1 * unigram_probability + lambda2 * bigram_probability + lambda3 * trigram_probability + lambda4 * fourgram_probability
+    return lambda1 * unigram_probability + lambda2 * bigram_probability + lambda3 * trigram_probability
 
 
-def interpolation_perplexity(sentences, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, fourgram_count, fourgram_context, lambdas, vocab_size):
+def interpolation_perplexity(sentences, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, lambdas, vocab_size):
     total_log_probabilities = 0.0
     tokens = 0
+
     for sentence in sentences:
-        for i in range(3, len(sentence)):  
-            context = tuple(sentence[i-3:i])
-            probability = interpolation(sentence[i], context,unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context,lambdas, vocab_size)
+        for i in range(2, len(sentence)): 
+            context = tuple(sentence[i-2:i])
+            probability = interpolation(sentence[i], context, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, lambdas, vocab_size)
             if probability <= 0:
                 continue
             total_log_probabilities += math.log2(probability)
             tokens += 1
+
     average_log_probabilities = total_log_probabilities / tokens
     return 2 ** (-average_log_probabilities)
 
 lambda_weights = [
-    [0.10, 0.15, 0.35, 0.40],
-    [0.05, 0.05, 0.30, 0.60],
-    [0.25, 0.10, 0.50, 0.15],
-    [0.40, 0.20, 0.20, 0.20],
-    [0.01, 0.24, 0.25, 0.50],
-    [0.33, 0.17, 0.25, 0.25],
-    [0.12, 0.18, 0.27, 0.43],
-    [0.07, 0.28, 0.10, 0.55],
-    [0.22, 0.22, 0.22, 0.34],
-    [0.48, 0.12, 0.30, 0.10],
-    [0.26, 0.14, 0.31, 0.29],
-    [0.09, 0.41, 0.19, 0.31]
+    [0.1, 0.3, 0.6],
+    [0.2, 0.3, 0.5],
+    [0.3, 0.3, 0.4],
+    [0.25, 0.25, 0.5],
+    [0.15, 0.25, 0.6],
+    [0.05, 0.25, 0.7],
+    [0.2, 0.2, 0.6],
+    [0.4, 0.3, 0.3],
+    [0.33, 0.33, 0.34],
+    [0.1, 0.4, 0.5],
+    [0.2, 0.4, 0.4],
+    [0.05, 0.15, 0.8]
 ]
 
 vocab_size = len(vocab)
@@ -274,13 +273,12 @@ highest_perplexity = float("inf")
 best_lambda = None
 
 for lambda_w in lambda_weights:
-    interpolation_perplexity_prob = interpolation_perplexity(validation_sentences, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, fourgram_count, fourgram_context, lambda_w, vocab_size)
+    interpolation_perplexity_prob = interpolation_perplexity(validation_sentences, unigram_count, bigram_count,bigram_context, trigram_count, trigram_context, lambda_w, vocab_size)
     if interpolation_perplexity_prob < highest_perplexity:
         highest_perplexity, best_lambda = interpolation_perplexity_prob, lambda_w
 
 print("Best Lambda:", best_lambda)
 print("Lowest Perplexity:", highest_perplexity)
-print()
 '''
 Block 6 : Backoff and Backoff Perplexity:
 This block consists of:
@@ -288,50 +286,48 @@ This block consists of:
 -backoff_perplexity(): Evaluate the perplexity for the selected backoff model
 The backoff perplexity is then calculated with a weight of alpha=0.4
 '''
-
-def backoff_probability(word, context, unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context, alpha=0.4):
-    if len(context) >= 3:
-        context_four = tuple(context[-3:])
-        fourgram_freq = fourgram_count.get(context_four + (word,), 0)
-        if fourgram_freq > 0:
-            return fourgram_freq / fourgram_context.get(context_four, 1)
-        return alpha * backoff_probability(word, context[-2:],unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context, alpha=alpha)
-
+def backoff_probability(word, context, unigram_count, bigram_count, bigram_context,trigram_count, trigram_context, alpha=0.4):
     if len(context) >= 2:
         context_tri = tuple(context[-2:])
         trigram_freq = trigram_count.get(context_tri + (word,), 0)
         if trigram_freq > 0:
             return trigram_freq / trigram_context.get(context_tri, 1)
-        return alpha * backoff_probability(word, context[-1:], unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context, alpha=alpha)
+        return alpha * backoff_probability(word, context[-1:], unigram_count, bigram_count,bigram_context, trigram_count, trigram_context, alpha=alpha)
 
     if len(context) >= 1:
         context_bi = (context[-1],)
         bigram_freq = bigram_count.get(context_bi + (word,), 0)
         if bigram_freq > 0:
             return bigram_freq / bigram_context.get(context_bi, 1)
-        return alpha * backoff_probability(word, (),unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context, alpha=alpha)
+        return alpha * backoff_probability(word, (), unigram_count, bigram_count,
+                                           bigram_context, trigram_count, trigram_context, alpha=alpha)
 
     total = sum(unigram_count.values())
     return unigram_count.get((word,), 0) / total
 
 
-def backoff_perplexity(sentences,unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, fourgram_count, fourgram_context, alpha=0.4):
+def backoff_perplexity(sentences, unigram_count, bigram_count, bigram_context,
+                       trigram_count, trigram_context, alpha=0.4):
     total_log_probabilities, tokens = 0.0, 0
+
     for sentence in sentences:
-        for i in range(3, len(sentence)):
-            context = tuple(sentence[i - 3:i])
-            probability = backoff_probability(sentence[i], context,unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context,alpha)
+        for i in range(2, len(sentence)):  
+            context = tuple(sentence[i - 2:i])
+            probability = backoff_probability(sentence[i], context,unigram_count, bigram_count, bigram_context,trigram_count, trigram_context, alpha)
             if probability == 0.0:
                 continue
             total_log_probabilities += math.log2(probability)
             tokens += 1
+
     if tokens == 0:
         return float("inf")
+
     avg_log_probability = total_log_probabilities / tokens
     return 2 ** (-avg_log_probability)
 
+
 alpha = 0.4
-boff_perplexity = backoff_perplexity(validation_sentences,unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context,alpha)
+boff_perplexity = backoff_perplexity(validation_sentences, unigram_count, bigram_count,bigram_context, trigram_count, trigram_context, alpha)
 print("Backoff Perplexity:", boff_perplexity)
 print()
 
@@ -341,8 +337,6 @@ Here, we calculate the perplexity of of all models on the testing set based on t
 The block also consists of a function generate_sentences() which uses the backoff model which is the best performing model on this set of data and generates sentences upto a length of 15 words
 
 '''
-
-
 mle_perplexity_unigram = compute_perplexity(testing_sentences, unigram_count, unigram_context, n=1)
 mle_perplexity_bigram = compute_perplexity(testing_sentences, bigram_count, bigram_context, n=2)
 mle_perplexity_trigram = compute_perplexity(testing_sentences, trigram_count, trigram_context, n=3)
@@ -351,9 +345,9 @@ test_unigram_laplace_perplexity = compute_perplexity_with_laplace(testing_senten
 test_bigram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, bigram_count, bigram_context, n=2)
 test_trigram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, trigram_count, trigram_context, n=3)
 test_fourgram_laplace_perplexity = compute_perplexity_with_laplace(testing_sentences, fourgram_count, fourgram_context, n=4)
-lambdas = [0.4, 0.2, 0.2, 0.2]
-test_interpolation_perplexity = interpolation_perplexity(testing_sentences, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context, fourgram_count, fourgram_context, lambdas, vocab_size)
-test_backoff_perplexity = backoff_perplexity(testing_sentences, unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context,alpha=0.4)
+lambdas = [0.4, 0.3, 0.3]
+test_interpolation_perplexity = interpolation_perplexity(testing_sentences, unigram_count, bigram_count, bigram_context, trigram_count, trigram_context,lambdas, vocab_size)
+test_backoff_perplexity = backoff_perplexity(testing_sentences, unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,alpha=0.4)
 
 print('MLE Perplexity on Testing Set for Unigram: ',mle_perplexity_unigram)
 print('MLE Perplexity on Testing Set for Bigram: ',mle_perplexity_bigram)
@@ -370,7 +364,7 @@ print('Interpolation perplexity on Testing Set: ',test_interpolation_perplexity)
 print('Backoff Perplexity for Testing set: ', test_backoff_perplexity)
 
 
-def generate_sentences(unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context,alpha=0.4):
+def generate_sentences(unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,alpha=0.4):
     start_token = [random.choice(list(unigram_count.keys()))[0]]
     sentence = list(start_token)
     for _ in range(15-len(start_token)):
@@ -380,7 +374,7 @@ def generate_sentences(unigram_count, bigram_count, bigram_context,trigram_count
         for word in vocab:
             if word in ['<s>','</s>','<UNK>', '<unk>']:
                 continue
-            prob = backoff_probability(word, context, unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context,alpha=0.4)
+            prob = backoff_probability(word, context, unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,alpha=0.4)
             if prob>0:
                 candidates.append(word)
                 probs.append(prob)
@@ -393,5 +387,5 @@ def generate_sentences(unigram_count, bigram_count, bigram_context,trigram_count
     return " ".join(sentence)
 
 for i in range(5):
-    sentence = generate_sentences(unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,fourgram_count, fourgram_context,alpha=0.4)
+    sentence = generate_sentences(unigram_count, bigram_count, bigram_context,trigram_count, trigram_context,alpha=0.4)
     print("Sentence Generated: ",sentence)
